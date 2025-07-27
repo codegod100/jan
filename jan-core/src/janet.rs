@@ -1,4 +1,7 @@
 use std::ffi::{c_char, c_int};
+use std::sync::{Mutex, OnceLock};
+
+static JANET_INITIALIZED: OnceLock<Mutex<bool>> = OnceLock::new();
 
 #[repr(C)]
 pub struct Janet {
@@ -29,19 +32,29 @@ unsafe impl Sync for JanetRuntime {}
 
 impl JanetRuntime {
     pub fn new() -> Result<Self, &'static str> {
-        unsafe {
-            if janet_init() != 0 {
-                return Err("Failed to initialize Janet runtime");
+        let init_guard = JANET_INITIALIZED.get_or_init(|| Mutex::new(false));
+        let mut initialized = init_guard.lock().unwrap();
+        
+        if !*initialized {
+            unsafe {
+                if janet_init() != 0 {
+                    return Err("Failed to initialize Janet runtime");
+                }
             }
+            *initialized = true;
+        }
+        
+        unsafe {
             let env = janet_core_env();
             if env.is_null() {
                 return Err("Failed to get Janet core environment");
             }
+            
+            Ok(JanetRuntime { 
+                _initialized: false, // We don't own the global init
+                env
+            })
         }
-        Ok(JanetRuntime { 
-            _initialized: true,
-            env: unsafe { janet_core_env() }
-        })
     }
 
     pub fn eval(&self, code: &str) -> Result<(), &'static str> {
@@ -60,10 +73,7 @@ impl JanetRuntime {
 
 impl Drop for JanetRuntime {
     fn drop(&mut self) {
-        if self._initialized {
-            unsafe {
-                janet_deinit();
-            }
-        }
+        // We don't call janet_deinit() here since multiple runtimes
+        // share the global Janet state. Janet will clean up on process exit.
     }
 }

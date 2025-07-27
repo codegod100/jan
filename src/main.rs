@@ -16,20 +16,17 @@ fn main() {
     janet!{ (print "  Hello from token macro!") };
     
     println!("\n4. Shared Janet runtime (persistent state across macro calls):");
-    janet_shared!("(def fibonacci (fn [n] (if (< n 2) n (+ (fibonacci (- n 1)) (fibonacci (- n 2))))))");
-    janet_shared!("(print \"  Fibonacci sequence:\")");
-    janet_shared!("(for i 0 10 (print \"    fib(\" i \") = \" (fibonacci i)))");
+    janet_shared!("(var counter 0)");
+    janet_shared!("(defn increment [] (set counter (+ counter 1)) counter)");
+    janet_shared!("(print \"  Counter: \" (increment))");
+    janet_shared!("(print \"  Counter: \" (increment))");
+    janet_shared!("(print \"  Counter: \" (increment))");
     
     println!("\n5. Complex Janet data structures:");
-    janet_shared!{
-        (def person @{
-            :name "Alice"
-            :age 30
-            :skills ["Janet" "Rust" "Lisp"]
-        })
-    };
-    janet_shared!("(print \"  Person: \" person)");
-    janet_shared!("(print \"  Skills: \" (person :skills))");
+    janet_shared!("(def nums @[1 2 3 4 5])");
+    janet_shared!("(def doubled (map (fn [x] (* x 2)) nums))");
+    janet_shared!("(print \"  Original: \" nums)");
+    janet_shared!("(print \"  Doubled: \" doubled)");
     
     println!("\n🎉 Janet procedural macro integration successful!");
 }
